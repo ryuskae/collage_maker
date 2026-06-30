@@ -267,7 +267,7 @@
     min-width: 120px;
     min-height: 40px;
     background: rgba(255,255,255,.92);
-    border: 2px solid #111;
+    border: 1px solid #111;
     border-radius: 8px;
     padding: 8px 10px;
     font-weight: 700;
@@ -304,7 +304,7 @@
   .tail-circle {
     border-radius: 50%;
     background: #fff;
-    border: 2px solid #111;
+    border: 1px solid #111;
   }
 
   .list {
@@ -426,7 +426,11 @@
       <select id="fontFamilySelect">
         <option value="Arial, sans-serif">Arial</option>
         <option value="'Times New Roman', Times, serif">Times New Roman</option>
+        <option value="'Noto Serif KR', 'Times New Roman', serif">Noto Serif KR</option>
         <option value="Georgia, serif">Georgia</option>
+        <option value="Garamond, Baskerville, serif">Garamond</option>
+        <option value="Baskerville, 'Times New Roman', serif">Baskerville</option>
+        <option value="serif">Serif (generic)</option>
         <option value="Verdana, sans-serif">Verdana</option>
         <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
         <option value="'Courier New', monospace">Courier New</option>
@@ -455,7 +459,7 @@
       </select>
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
-      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다.</p>
+      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다. 이번 버전에서는 말풍선 테두리를 더 얇게 하고 세리프 폰트를 추가했습니다.</p>
     </div>
 
     <div class="section">
@@ -1244,7 +1248,7 @@ function renderBubbleVisual(el) {
   path.setAttribute("d", shape.d);
   path.setAttribute("fill", "white");
   path.setAttribute("stroke", "#111");
-  path.setAttribute("stroke-width", "2");
+  path.setAttribute("stroke-width", "1");
   path.setAttribute("stroke-linejoin", "round");
   path.setAttribute("stroke-linecap", "round");
   bg.appendChild(path);
@@ -1674,14 +1678,14 @@ async function drawBubble(ctx, text, x, y, w, h, scale, el) {
   if (!previewBGDrawn) {
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#111111";
-    ctx.lineWidth = 2 * scale;
+    ctx.lineWidth = 1 * scale;
     drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, tailDir, tailType === "solid");
   }
 
   if (tailType === "dot") {
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#111111";
-    ctx.lineWidth = 2 * scale;
+    ctx.lineWidth = 1 * scale;
 
     const [p1, p2] = getDotTailGeometry(tailDir, x, y, w, h, scale);
     ctx.beginPath();
