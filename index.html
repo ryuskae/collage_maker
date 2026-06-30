@@ -455,7 +455,7 @@
       </select>
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
-      <p class="small">실선 대사 꼬리는 편집 화면의 SVG와 동일한 모양으로 내보내기되도록 맞췄고, 영문 줄바꿈은 단어 단위로 처리합니다.</p>
+      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다.</p>
     </div>
 
     <div class="section">
@@ -1476,6 +1476,32 @@ function wrapLines(ctx, text, maxWidth) {
   const paragraphs = String(text).split("\n");
   const allLines = [];
 
+  function tokenizeParagraph(para) {
+    const tokens = [];
+    let latinBuffer = "";
+
+    function flushLatin() {
+      if (latinBuffer) {
+        tokens.push(latinBuffer);
+        latinBuffer = "";
+      }
+    }
+
+    for (const ch of para) {
+      if (/\s/.test(ch)) {
+        flushLatin();
+        tokens.push(ch);
+      } else if (/[A-Za-z0-9]/.test(ch) || (latinBuffer && /['’.,!?;:-]/.test(ch))) {
+        latinBuffer += ch;
+      } else {
+        flushLatin();
+        tokens.push(ch);
+      }
+    }
+    flushLatin();
+    return tokens;
+  }
+
   function breakLongToken(token) {
     const pieces = [];
     let current = "";
@@ -1498,7 +1524,7 @@ function wrapLines(ctx, text, maxWidth) {
       continue;
     }
 
-    const tokens = para.match(/\S+|\s+/g) || [];
+    const tokens = tokenizeParagraph(para);
     let line = "";
 
     for (const token of tokens) {
@@ -1536,6 +1562,39 @@ function wrapLines(ctx, text, maxWidth) {
 
   return allLines;
 }
+
+function fitTextToBox(ctx, text, maxWidth, maxHeight, fontFamily, baseFontPx) {
+  let fontPx = baseFontPx;
+  let lines = [];
+  let lineH = 0;
+
+  for (let i = 0; i < 25; i++) {
+    ctx.font = `bold ${fontPx}px ${fontFamily}`;
+    lines = wrapLines(ctx, text, maxWidth);
+    lineH = fontPx * 1.25;
+
+    const widest = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+    const totalH = lines.length * lineH;
+
+    if (widest <= maxWidth && totalH <= maxHeight) {
+      return { fontPx, lines, lineH, totalH };
+    }
+
+    fontPx -= 1;
+    if (fontPx <= 8) break;
+  }
+
+  ctx.font = `bold ${Math.max(fontPx, 8)}px ${fontFamily}`;
+  lines = wrapLines(ctx, text, maxWidth);
+  lineH = Math.max(fontPx, 8) * 1.25;
+  return {
+    fontPx: Math.max(fontPx, 8),
+    lines,
+    lineH,
+    totalH: lines.length * lineH
+  };
+}
+
 
 function drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, dir, includeTail=true) {
   const shape = buildSpeechBubblePathData(w, h, dir, 0, includeTail);
@@ -1637,17 +1696,23 @@ async function drawBubble(ctx, text, x, y, w, h, scale, el) {
   }
 
   const fontFamily = el.style.fontFamily || defaultFontFamily;
-  const fontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
+  const baseFontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
   ctx.fillStyle = "#111111";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `bold ${fontPx}px ${fontFamily}`;
 
-  const lines = wrapLines(ctx, text, w - 34 * scale);
-  const lineH = fontPx * 1.25;
-  const totalH = lines.length * lineH;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, x + w/2, y + h/2 - totalH/2 + i * lineH + lineH/2);
+  const fit = fitTextToBox(
+    ctx,
+    text,
+    w - 34 * scale,
+    h - 22 * scale,
+    fontFamily,
+    baseFontPx
+  );
+
+  ctx.font = `bold ${fit.fontPx}px ${fontFamily}`;
+  fit.lines.forEach((line, i) => {
+    ctx.fillText(line, x + w/2, y + h/2 - fit.totalH/2 + i * fit.lineH + fit.lineH/2);
   });
 
   ctx.restore();
@@ -1657,12 +1722,18 @@ function drawCaption(ctx, text, x, y, w, h, scale, el) {
   ctx.save();
 
   const fontFamily = el.style.fontFamily || defaultFontFamily;
-  const fontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
-  ctx.font = `bold ${fontPx}px ${fontFamily}`;
+  const baseFontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
 
-  const lines = wrapLines(ctx, text, w - 20 * scale);
-  const lineH = fontPx * 1.25;
-  const realH = Math.max(h, lines.length * lineH + 16 * scale);
+  const fit = fitTextToBox(
+    ctx,
+    text,
+    w - 20 * scale,
+    Math.max(h - 16 * scale, 20),
+    fontFamily,
+    baseFontPx
+  );
+
+  const realH = Math.max(h, fit.totalH + 16 * scale);
 
   roundRect(ctx, x, y, w, realH, 8 * scale);
   ctx.fillStyle = "rgba(255,255,255,.92)";
@@ -1674,8 +1745,9 @@ function drawCaption(ctx, text, x, y, w, h, scale, el) {
   ctx.fillStyle = "#111";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  lines.forEach((line, i) => {
-    ctx.fillText(line, x + w/2, y + 8 * scale + i * lineH + lineH/2);
+  ctx.font = `bold ${fit.fontPx}px ${fontFamily}`;
+  fit.lines.forEach((line, i) => {
+    ctx.fillText(line, x + w/2, y + realH/2 - fit.totalH/2 + i * fit.lineH + fit.lineH/2);
   });
 
   ctx.restore();
