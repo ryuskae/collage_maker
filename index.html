@@ -34,10 +34,27 @@
     overflow-y: auto;
   }
   main {
-    padding: 24px;
-    display: grid;
-    place-items: start center;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  #canvasViewport {
+    width: 100%;
+    height: calc(100vh - 85px);
     overflow: auto;
+    cursor: grab;
+    touch-action: none;
+    padding: 8px;
+  }
+
+  #canvasStage {
+    min-width: max-content;
+    min-height: max-content;
+    padding: 160px;
+  }
+
+  #canvasViewport.panning {
+    cursor: grabbing;
   }
   .section {
     margin-bottom: 18px;
@@ -127,7 +144,7 @@
     height: 720px;
     background: #fff;
     overflow: hidden;
-    transform-origin: top center;
+    transform-origin: top left;
   }
   #canvasArea.drop-ready::before {
     content: "이미지를 여기에 드래그해서 놓으세요";
@@ -276,6 +293,7 @@
     .app { grid-template-columns: 1fr; }
     aside { border-right: 0; border-bottom: 1px solid #3c4043; }
     main { padding: 12px; }
+    #canvasViewport { height: 70vh; }
     .canvas-wrap { padding: 10px; }
   }
 </style>
@@ -308,7 +326,12 @@
       <input id="zoom" type="range" min="20" max="300" value="100" />
 
       <div id="layoutStatus" class="status">
-        현재 페이지 방향: 세로 9:16
+        현재 페이지 방향: 세로 9:16<br>
+        확대 후에는 빈 작업 영역을 드래그해서 화면을 이동할 수 있습니다. 요소 위에서는 스페이스바를 누른 채 드래그하세요.
+      </div>
+      <div class="two-col" style="margin-top:8px;">
+        <button class="secondary" id="centerViewBtn">가운데 보기</button>
+        <button class="secondary" id="leftViewBtn">왼쪽 보기</button>
       </div>
     </div>
 
@@ -422,8 +445,12 @@
   </aside>
 
   <main>
-    <div class="canvas-wrap">
-      <div id="canvasArea"></div>
+    <div id="canvasViewport">
+      <div id="canvasStage">
+        <div class="canvas-wrap">
+          <div id="canvasArea"></div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -433,6 +460,8 @@ const PORTRAIT = { w: 405, h: 720, label: "세로 9:16" };
 const LANDSCAPE = { w: 720, h: 405, label: "가로 16:9" };
 
 const canvasArea = document.getElementById("canvasArea");
+const canvasViewport = document.getElementById("canvasViewport");
+const canvasStage = document.getElementById("canvasStage");
 const imageInput = document.getElementById("imageInput");
 const addBubbleBtn = document.getElementById("addBubble");
 const addCaptionBtn = document.getElementById("addCaption");
@@ -460,6 +489,8 @@ const tailTypeSelect = document.getElementById("tailTypeSelect");
 const tailDirSelect = document.getElementById("tailDirSelect");
 const pageMode = document.getElementById("pageMode");
 const layoutStatus = document.getElementById("layoutStatus");
+const centerViewBtn = document.getElementById("centerViewBtn");
+const leftViewBtn = document.getElementById("leftViewBtn");
 
 const xInput = document.getElementById("xInput");
 const yInput = document.getElementById("yInput");
@@ -489,9 +520,19 @@ function setCanvasOrientation(mode) {
 
 function setPreviewScale() {
   const scale = Number(zoom.value) / 100;
+  const wrap = canvasArea.parentElement;
+
   canvasArea.style.transform = `scale(${scale})`;
-  canvasArea.parentElement.style.width = `${canvasBaseW * scale + 36}px`;
-  canvasArea.parentElement.style.height = `${canvasBaseH * scale + 36}px`;
+  canvasArea.style.transformOrigin = "top left";
+
+  // transform은 실제 레이아웃 크기를 바꾸지 않으므로,
+  // wrapper의 실제 크기를 확대 후 크기만큼 직접 잡아줘야 스크롤 영역이 생깁니다.
+  wrap.style.width = `${canvasBaseW * scale + 36}px`;
+  wrap.style.height = `${canvasBaseH * scale + 36}px`;
+
+  // 작업 영역도 충분히 크게 유지합니다.
+  canvasStage.style.minWidth = `${canvasBaseW * scale + 360}px`;
+  canvasStage.style.minHeight = `${canvasBaseH * scale + 360}px`;
 }
 setCanvasOrientation("portrait");
 zoom.addEventListener("input", setPreviewScale);
@@ -1537,6 +1578,87 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
 }
+
+
+
+function centerCanvasInViewport() {
+  const scale = Number(zoom.value) / 100;
+  const targetLeft = 160 + (canvasBaseW * scale + 36) / 2 - canvasViewport.clientWidth / 2;
+  const targetTop = 160 + (canvasBaseH * scale + 36) / 2 - canvasViewport.clientHeight / 2;
+  canvasViewport.scrollLeft = Math.max(0, targetLeft);
+  canvasViewport.scrollTop = Math.max(0, targetTop);
+}
+
+function showCanvasLeftEdge() {
+  canvasViewport.scrollLeft = Math.max(0, 120);
+}
+
+centerViewBtn.addEventListener("click", centerCanvasInViewport);
+leftViewBtn.addEventListener("click", showCanvasLeftEdge);
+
+zoom.addEventListener("change", () => {
+  // 확대/축소 후 캔버스가 완전히 스크롤 가능한 영역 안에 들어오도록 중앙 기준으로 잡습니다.
+  centerCanvasInViewport();
+});
+
+let isViewportPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+let panScrollLeft = 0;
+let panScrollTop = 0;
+let spacePressed = false;
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    spacePressed = true;
+    if (document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+    e.preventDefault();
+  }
+});
+
+document.addEventListener("keyup", e => {
+  if (e.code === "Space") {
+    spacePressed = false;
+  }
+});
+
+function canStartPanning(target) {
+  if (target.closest(".resize-handle")) return false;
+  if (target.closest(".panel, .bubble, .caption")) {
+    return spacePressed;
+  }
+  return true;
+}
+
+canvasViewport.addEventListener("pointerdown", e => {
+  if (!canStartPanning(e.target)) return;
+  isViewportPanning = true;
+  panStartX = e.clientX;
+  panStartY = e.clientY;
+  panScrollLeft = canvasViewport.scrollLeft;
+  panScrollTop = canvasViewport.scrollTop;
+  canvasViewport.classList.add("panning");
+  try { canvasViewport.setPointerCapture(e.pointerId); } catch {}
+  e.preventDefault();
+});
+
+canvasViewport.addEventListener("pointermove", e => {
+  if (!isViewportPanning) return;
+  const dx = e.clientX - panStartX;
+  const dy = e.clientY - panStartY;
+  canvasViewport.scrollLeft = panScrollLeft - dx;
+  canvasViewport.scrollTop = panScrollTop - dy;
+});
+
+function stopViewportPanning(e) {
+  if (!isViewportPanning) return;
+  isViewportPanning = false;
+  canvasViewport.classList.remove("panning");
+  try { canvasViewport.releasePointerCapture(e.pointerId); } catch {}
+}
+
+canvasViewport.addEventListener("pointerup", stopViewportPanning);
+canvasViewport.addEventListener("pointercancel", stopViewportPanning);
 
 exportBtn.addEventListener("click", exportJPEG);
 </script>
