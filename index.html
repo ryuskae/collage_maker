@@ -119,6 +119,17 @@
     background: #3f51b5;
     border-color: #3f51b5;
     font-weight: 700;
+    transition: transform .08s ease, filter .08s ease, background .12s ease;
+  }
+
+  button:active {
+    transform: translateY(1px) scale(.985);
+    filter: brightness(1.25);
+  }
+
+  button.button-pressed {
+    transform: translateY(1px) scale(.985);
+    filter: brightness(1.25);
   }
   button.secondary {
     background: #2b2d30;
@@ -264,7 +275,7 @@
   .bubble .text-content,
   .caption .text-content {
     position: relative;
-    z-index: 2;
+    z-index: 4;
     white-space: pre-wrap;
     text-align: center;
     word-break: keep-all;
@@ -306,7 +317,7 @@
   .tail-part {
     position: absolute;
     pointer-events: none;
-    z-index: 1;
+    z-index: 3;
   }
   .tail-circle {
     border-radius: 50%;
@@ -467,7 +478,7 @@
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
       <div id="styleApplyStatus" class="status" style="display:none;"></div>
-      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다. 이번 버전에서는 말풍선 테두리를 더 얇게 하고 세리프 폰트를 추가했습니다. 폰트 선택값은 새 말풍선에도 유지되며, 꼬리 방향은 화살표로 표시됩니다.</p>
+      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다. 이번 버전에서는 말풍선 테두리를 더 얇게 하고 세리프 폰트를 추가했습니다. 폰트 선택값은 새 말풍선에도 유지되며, 꼬리 방향은 화살표로 표시됩니다. 모든 버튼에는 눌림 반응을 넣었고, 점형 꼬리도 편집 화면에서 보이도록 수정했습니다.</p>
     </div>
 
     <div class="section">
@@ -641,10 +652,19 @@ function syncInputs(el) {
 
 function syncTextControls(el) {
   if (el.classList.contains("bubble") || el.classList.contains("caption")) {
-    fontFamilySelect.value = el.style.fontFamily || defaultFontFamily;
-    fontSizeInput.value = Math.round(parseFloat(el.style.fontSize || defaultFontSize));
+    const storedFamily = el.dataset.fontFamily || defaultFontFamily;
+    const storedSize = el.dataset.fontSize || defaultFontSize;
+
+    fontFamilySelect.value = storedFamily;
+    if (fontFamilySelect.value !== storedFamily) {
+      // select option과 정확히 일치하지 않는 브라우저 정규화 문자열은 기본값을 건드리지 않음
+      fontFamilySelect.value = defaultFontFamily;
+    }
+
+    fontSizeInput.value = Math.round(parseFloat(storedSize));
     defaultFontFamily = fontFamilySelect.value;
     defaultFontSize = Number(fontSizeInput.value || defaultFontSize);
+
     if (el.classList.contains("bubble")) {
       tailTypeSelect.value = el.dataset.tailType || "solid";
       tailDirSelect.value = el.dataset.tailDir || "bottom-right";
@@ -1138,6 +1158,19 @@ function flashStyleApplyButton(message) {
   }, 650);
 }
 
+
+function attachGlobalButtonFeedback() {
+  document.querySelectorAll("button").forEach(btn => {
+    if (btn.dataset.feedbackReady === "1") return;
+    btn.dataset.feedbackReady = "1";
+    btn.addEventListener("click", () => {
+      btn.classList.add("button-pressed");
+      setTimeout(() => btn.classList.remove("button-pressed"), 160);
+    });
+  });
+}
+attachGlobalButtonFeedback();
+
 function createTextElement(type) {
   rememberCurrentTextDefaults();
   const el = document.createElement("div");
@@ -1146,6 +1179,8 @@ function createTextElement(type) {
   el.style.top = "90px";
   el.style.width = type === "bubble" ? "190px" : "220px";
   el.style.height = type === "bubble" ? "100px" : "70px";
+  el.dataset.fontFamily = defaultFontFamily;
+  el.dataset.fontSize = String(defaultFontSize);
   el.style.fontFamily = defaultFontFamily;
   el.style.fontSize = `${defaultFontSize}px`;
   el.style.zIndex = ++zCounter;
@@ -1174,6 +1209,8 @@ applyTextStyleBtn.addEventListener("click", () => {
   rememberCurrentTextDefaults();
 
   if (selected && (selected.classList.contains("bubble") || selected.classList.contains("caption"))) {
+    selected.dataset.fontFamily = defaultFontFamily;
+    selected.dataset.fontSize = String(defaultFontSize);
     selected.style.fontFamily = defaultFontFamily;
     selected.style.fontSize = `${defaultFontSize}px`;
 
@@ -1312,39 +1349,39 @@ function renderBubbleVisual(el) {
 function applyDotTailPosition(node, dir, step) {
   const pos = {
     "bottom-right": [
-      { left: "64%", top: "calc(100% - 2px)", rotate: "15deg" },
-      { left: "72%", top: "calc(100% + 12px)", rotate: "15deg" }
+      { left: "66%", top: "calc(100% + 2px)", rotate: "15deg" },
+      { left: "76%", top: "calc(100% + 20px)", rotate: "15deg" }
     ],
     "bottom": [
-      { left: "47%", top: "calc(100% - 2px)", rotate: "0deg" },
-      { left: "49%", top: "calc(100% + 14px)", rotate: "0deg" }
+      { left: "48%", top: "calc(100% + 2px)", rotate: "0deg" },
+      { left: "50%", top: "calc(100% + 22px)", rotate: "0deg" }
     ],
     "bottom-left": [
-      { left: "22%", top: "calc(100% - 2px)", rotate: "-15deg" },
-      { left: "14%", top: "calc(100% + 12px)", rotate: "-15deg" }
+      { left: "24%", top: "calc(100% + 2px)", rotate: "-15deg" },
+      { left: "12%", top: "calc(100% + 20px)", rotate: "-15deg" }
     ],
     "right": [
-      { left: "calc(100% - 2px)", top: "46%", rotate: "-75deg" },
-      { left: "calc(100% + 12px)", top: "49%", rotate: "-75deg" }
+      { left: "calc(100% + 2px)", top: "48%", rotate: "-75deg" },
+      { left: "calc(100% + 22px)", top: "52%", rotate: "-75deg" }
     ],
     "left": [
-      { left: "-18px", top: "46%", rotate: "105deg" },
-      { left: "-28px", top: "49%", rotate: "105deg" }
+      { left: "-22px", top: "48%", rotate: "105deg" },
+      { left: "-42px", top: "52%", rotate: "105deg" }
     ],
     "top-right": [
-      { left: "64%", top: "-22px", rotate: "190deg" },
-      { left: "72%", top: "-30px", rotate: "190deg" }
+      { left: "66%", top: "-22px", rotate: "190deg" },
+      { left: "76%", top: "-42px", rotate: "190deg" }
     ],
     "top": [
-      { left: "47%", top: "-22px", rotate: "180deg" },
-      { left: "49%", top: "-30px", rotate: "180deg" }
+      { left: "48%", top: "-22px", rotate: "180deg" },
+      { left: "50%", top: "-42px", rotate: "180deg" }
     ],
     "top-left": [
-      { left: "22%", top: "-22px", rotate: "165deg" },
-      { left: "14%", top: "-30px", rotate: "165deg" }
+      { left: "24%", top: "-22px", rotate: "165deg" },
+      { left: "12%", top: "-42px", rotate: "165deg" }
     ]
   };
-  const config = pos[dir][step] || pos["bottom-right"][step];
+  const config = pos[dir][step - 1] || pos["bottom-right"][step - 1];
   node.style.left = config.left;
   node.style.top = config.top;
   node.style.transform = `rotate(${config.rotate})`;
@@ -1737,8 +1774,8 @@ async function drawBubble(ctx, text, x, y, w, h, scale, el) {
     ctx.stroke();
   }
 
-  const fontFamily = el.style.fontFamily || defaultFontFamily;
-  const baseFontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
+  const fontFamily = el.dataset.fontFamily || el.style.fontFamily || defaultFontFamily;
+  const baseFontPx = parseFloat(el.dataset.fontSize || el.style.fontSize || defaultFontSize) * scale;
   ctx.fillStyle = "#111111";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -1763,8 +1800,8 @@ async function drawBubble(ctx, text, x, y, w, h, scale, el) {
 function drawCaption(ctx, text, x, y, w, h, scale, el) {
   ctx.save();
 
-  const fontFamily = el.style.fontFamily || defaultFontFamily;
-  const baseFontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
+  const fontFamily = el.dataset.fontFamily || el.style.fontFamily || defaultFontFamily;
+  const baseFontPx = parseFloat(el.dataset.fontSize || el.style.fontSize || defaultFontSize) * scale;
 
   const fit = fitTextToBox(
     ctx,
