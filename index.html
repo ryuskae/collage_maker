@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Webtoon Auto Panel Collage Maker v7</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #202124;
+    color: #f1f3f4;
+  }
+  header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #3c4043;
+    background: #151617;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  header h1 { margin: 0; font-size: 18px; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 370px 1fr;
+    min-height: calc(100vh - 53px);
+  }
+  aside {
+    padding: 16px;
+    border-right: 1px solid #3c4043;
+    background: #181a1b;
+    overflow-y: auto;
+  }
+  main {
+    padding: 24px;
+    display: grid;
+    place-items: start center;
+    overflow: auto;
+  }
+  .section {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #333;
+  }
+  .section h2 {
+    font-size: 14px;
+    margin: 0 0 10px;
+    color: #cfd3d7;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #cfd3d7;
+    margin: 10px 0 5px;
+  }
+  input, select, button, textarea {
+    width: 100%;
+    font: inherit;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 9px 10px;
+    background: #2b2d30;
+    color: #fff;
+  }
+  textarea {
+    min-height: 70px;
+    resize: vertical;
+  }
+  button {
+    cursor: pointer;
+    background: #3f51b5;
+    border-color: #3f51b5;
+    font-weight: 700;
+  }
+  button.secondary {
+    background: #2b2d30;
+    border-color: #555;
+  }
+  button.danger {
+    background: #9b2525;
+    border-color: #9b2525;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .small {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+  .status {
+    margin-top: 8px;
+    padding: 10px;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #d8dee9;
+    line-height: 1.5;
+  }
+  .export-link {
+    display: none;
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid #4a6;
+    border-radius: 8px;
+    background: #1d2a22;
+    color: #cfead6;
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .export-link a { color: #9ce2b0; }
+
+  .canvas-wrap {
+    background: #777;
+    padding: 18px;
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  }
+  #canvasArea {
+    position: relative;
+    width: 405px;
+    height: 720px;
+    background: #fff;
+    overflow: hidden;
+    transform-origin: top center;
+  }
+  #canvasArea.drop-ready::before {
+    content: "이미지를 여기에 드래그해서 놓으세요";
+    position: absolute;
+    inset: 18px;
+    border: 3px dashed #3f51b5;
+    background: rgba(63,81,181,.08);
+    color: #3f51b5;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  .panel {
+    position: absolute;
+    background: #fff;
+    border: 5px solid #fff;
+    overflow: hidden;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  .panel.selected {
+    outline: 3px solid #5b8cff;
+    outline-offset: -3px;
+  }
+  .panel img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #fff;
+    pointer-events: none;
+    display: block;
+  }
+  .panel-index {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.65);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 800;
+    pointer-events: none;
+  }
+
+  .bubble,
+  .caption {
+    position: absolute;
+    color: #111;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  .bubble {
+    min-width: 90px;
+    min-height: 50px;
+    max-width: 360px;
+    background: transparent;
+    border: 0;
+    padding: 12px 16px;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.25;
+    display: grid;
+    place-items: center;
+    overflow: visible;
+  }
+  .bubble .bubble-bg {
+    position: absolute;
+    pointer-events: none;
+    overflow: visible;
+    z-index: -1;
+  }
+  .bubble .text-content,
+  .caption .text-content {
+    position: relative;
+    z-index: 2;
+    white-space: pre-wrap;
+    text-align: center;
+  }
+  .caption {
+    min-width: 120px;
+    min-height: 40px;
+    background: rgba(255,255,255,.92);
+    border: 2px solid #111;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 700;
+    text-align: center;
+    display: grid;
+    place-items: center;
+  }
+  .bubble.selected,
+  .caption.selected {
+    outline: 3px solid #ff9800;
+    outline-offset: 3px;
+  }
+
+  .resize-handle {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 18px;
+    height: 18px;
+    background: #5b8cff;
+    border: 2px solid #fff;
+    cursor: nwse-resize;
+    z-index: 12;
+  }
+  .text-handle {
+    background: #ff9800;
+  }
+
+  .tail-part {
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .tail-circle {
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #111;
+  }
+
+  .list {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #cfd3d7;
+    line-height: 1.5;
+    max-height: 150px;
+    overflow: auto;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 8px;
+  }
+
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid #3c4043; }
+    main { padding: 12px; }
+    .canvas-wrap { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Webtoon Auto Panel Collage Maker v7</h1>
+</header>
+
+<div class="app">
+  <aside>
+    <div class="section">
+      <h2>캔버스</h2>
+
+      <label>페이지 방향</label>
+      <select id="pageMode">
+        <option value="auto">자동 선택</option>
+        <option value="portrait">세로 9:16 고정</option>
+        <option value="landscape">가로 16:9 고정</option>
+      </select>
+
+      <label>출력 크기</label>
+      <select id="sizePreset">
+        <option value="1080x1920">1080 × 1920 기준</option>
+        <option value="1440x2560">1440 × 2560 기준</option>
+        <option value="2160x3840">2160 × 3840 기준</option>
+      </select>
+
+      <label>미리보기 확대/축소</label>
+      <input id="zoom" type="range" min="20" max="300" value="100" />
+
+      <div id="layoutStatus" class="status">
+        현재 페이지 방향: 세로 9:16
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>이미지 패널</h2>
+      <input id="imageInput" type="file" accept="image/*" multiple />
+
+      <label>자동 배치 방식</label>
+      <select id="layoutMode">
+        <option value="smart">스마트 자동 배치</option>
+        <option value="orderRows">선택 순서대로 행 묶기</option>
+        <option value="free">자동 배치 안 함</option>
+      </select>
+
+      <label>패널 간격</label>
+      <input id="gapInput" type="number" value="8" min="0" max="30" />
+
+      <button id="autoLayoutBtn">현재 이미지 자동 재배치</button>
+      <button class="secondary" id="toggleFit">선택 이미지: 채움/맞춤 전환</button>
+      <button class="secondary" id="resetAspect">선택 패널: 원본 비율 복원</button>
+      <button class="danger" id="clearPanels">이미지 패널 모두 삭제</button>
+
+      <div id="orderList" class="list">아직 이미지가 없습니다.</div>
+      <p class="small">자동 모드에서는 세로 9:16과 가로 16:9를 둘 다 시험한 뒤 이미지가 더 크게 보이는 쪽을 선택합니다.</p>
+    </div>
+
+    <div class="section">
+      <h2>말풍선 / 자막</h2>
+      <label>텍스트</label>
+      <textarea id="textInput">대사를 입력하세요.</textarea>
+
+      <div class="two-col">
+        <button id="addBubble">말풍선 추가</button>
+        <button class="secondary" id="addCaption">사각 자막 추가</button>
+      </div>
+
+      <label>영문 폰트</label>
+      <select id="fontFamilySelect">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', Times, serif">Times New Roman</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+        <option value="'Courier New', monospace">Courier New</option>
+      </select>
+
+      <label>글자 크기(px)</label>
+      <input id="fontSizeInput" type="number" value="20" min="10" max="72" />
+
+      <label>말풍선 꼬리 종류</label>
+      <select id="tailTypeSelect">
+        <option value="solid">실선 대사 꼬리</option>
+        <option value="dot">점형 생각 꼬리</option>
+        <option value="none">없음</option>
+      </select>
+
+      <label>말풍선 꼬리 방향</label>
+      <select id="tailDirSelect">
+        <option value="bottom-right">아래 오른쪽</option>
+        <option value="bottom">아래 중앙</option>
+        <option value="bottom-left">아래 왼쪽</option>
+        <option value="right">오른쪽</option>
+        <option value="left">왼쪽</option>
+        <option value="top-right">위 오른쪽</option>
+        <option value="top">위 중앙</option>
+        <option value="top-left">위 왼쪽</option>
+      </select>
+
+      <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
+      <p class="small">실선 대사 꼬리는 본체와 꼬리를 하나의 경로로 그리도록 수정했습니다.</p>
+    </div>
+
+    <div class="section">
+      <h2>선택 요소 편집</h2>
+      <label>X 위치</label>
+      <input id="xInput" type="number" />
+      <label>Y 위치</label>
+      <input id="yInput" type="number" />
+      <label>너비</label>
+      <input id="wInput" type="number" />
+      <label>높이</label>
+      <input id="hInput" type="number" />
+      <button id="updateSelected">선택 요소 수정</button>
+      <button class="danger" id="deleteSelected">선택 요소 삭제</button>
+    </div>
+
+    <div class="section">
+      <h2>내보내기</h2>
+      <button id="exportJpeg">JPEG로 저장</button>
+      <div id="exportLinkBox" class="export-link"></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="canvas-wrap">
+      <div id="canvasArea"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const PORTRAIT = { w: 405, h: 720, label: "세로 9:16" };
+const LANDSCAPE = { w: 720, h: 405, label: "가로 16:9" };
+
+const canvasArea = document.getElementById("canvasArea");
+const imageInput = document.getElementById("imageInput");
+const addBubbleBtn = document.getElementById("addBubble");
+const addCaptionBtn = document.getElementById("addCaption");
+const textInput = document.getElementById("textInput");
+const exportBtn = document.getElementById("exportJpeg");
+const exportLinkBox = document.getElementById("exportLinkBox");
+const deleteBtn = document.getElementById("deleteSelected");
+const updateBtn = document.getElementById("updateSelected");
+const toggleFitBtn = document.getElementById("toggleFit");
+const resetAspectBtn = document.getElementById("resetAspect");
+const clearPanelsBtn = document.getElementById("clearPanels");
+const autoLayoutBtn = document.getElementById("autoLayoutBtn");
+const applyTextStyleBtn = document.getElementById("applyTextStyle");
+const zoom = document.getElementById("zoom");
+const sizePreset = document.getElementById("sizePreset");
+const layoutMode = document.getElementById("layoutMode");
+const gapInput = document.getElementById("gapInput");
+const orderList = document.getElementById("orderList");
+const fontFamilySelect = document.getElementById("fontFamilySelect");
+const fontSizeInput = document.getElementById("fontSizeInput");
+const tailTypeSelect = document.getElementById("tailTypeSelect");
+const tailDirSelect = document.getElementById("tailDirSelect");
+const pageMode = document.getElementById("pageMode");
+const layoutStatus = document.getElementById("layoutStatus");
+
+const xInput = document.getElementById("xInput");
+const yInput = document.getElementById("yInput");
+const wInput = document.getElementById("wInput");
+const hInput = document.getElementById("hInput");
+
+let canvasBaseW = PORTRAIT.w;
+let canvasBaseH = PORTRAIT.h;
+let currentOrientation = "portrait";
+
+let selected = null;
+let zCounter = 10;
+let imageItems = [];
+let defaultFontFamily = fontFamilySelect.value;
+let defaultFontSize = Number(fontSizeInput.value || 20);
+
+function setCanvasOrientation(mode) {
+  currentOrientation = mode;
+  const info = mode === "landscape" ? LANDSCAPE : PORTRAIT;
+  canvasBaseW = info.w;
+  canvasBaseH = info.h;
+  canvasArea.style.width = `${canvasBaseW}px`;
+  canvasArea.style.height = `${canvasBaseH}px`;
+  layoutStatus.textContent = `현재 페이지 방향: ${info.label}`;
+  setPreviewScale();
+}
+
+function setPreviewScale() {
+  const scale = Number(zoom.value) / 100;
+  canvasArea.style.transform = `scale(${scale})`;
+  canvasArea.parentElement.style.width = `${canvasBaseW * scale + 36}px`;
+  canvasArea.parentElement.style.height = `${canvasBaseH * scale + 36}px`;
+}
+setCanvasOrientation("portrait");
+zoom.addEventListener("input", setPreviewScale);
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createSVGEl(tag) {
+  return document.createElementNS("http://www.w3.org/2000/svg", tag);
+}
+
+function getBubbleText(el) {
+  return el.querySelector(".text-content")?.textContent || "";
+}
+
+function setBubbleText(el, text) {
+  const node = el.querySelector(".text-content");
+  if (node) node.textContent = text;
+}
+
+function selectElement(el) {
+  document.querySelectorAll(".selected").forEach(e => e.classList.remove("selected"));
+  selected = el;
+  if (el) {
+    el.classList.add("selected");
+    el.style.zIndex = ++zCounter;
+    syncInputs(el);
+    syncTextControls(el);
+  }
+}
+
+function syncInputs(el) {
+  xInput.value = Math.round(parseFloat(el.style.left || 0));
+  yInput.value = Math.round(parseFloat(el.style.top || 0));
+  wInput.value = Math.round(parseFloat(el.style.width || el.offsetWidth));
+  hInput.value = Math.round(parseFloat(el.style.height || el.offsetHeight));
+}
+
+function syncTextControls(el) {
+  if (el.classList.contains("bubble") || el.classList.contains("caption")) {
+    fontFamilySelect.value = el.style.fontFamily || defaultFontFamily;
+    fontSizeInput.value = Math.round(parseFloat(el.style.fontSize || defaultFontSize));
+    if (el.classList.contains("bubble")) {
+      tailTypeSelect.value = el.dataset.tailType || "solid";
+      tailDirSelect.value = el.dataset.tailDir || "bottom-right";
+    }
+  }
+}
+
+function makeMovable(el) {
+  let startX, startY, originalX, originalY, dragging = false;
+
+  el.addEventListener("pointerdown", e => {
+    if (e.target.classList.contains("resize-handle")) return;
+    selectElement(el);
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    originalX = parseFloat(el.style.left || 0);
+    originalY = parseFloat(el.style.top || 0);
+    el.setPointerCapture(e.pointerId);
+  });
+
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const scale = Number(zoom.value) / 100;
+    const dx = (e.clientX - startX) / scale;
+    const dy = (e.clientY - startY) / scale;
+    const w = parseFloat(el.style.width || el.offsetWidth);
+    const h = parseFloat(el.style.height || el.offsetHeight);
+    el.style.left = `${clamp(originalX + dx, -w + 30, canvasBaseW - 30)}px`;
+    el.style.top = `${clamp(originalY + dy, -h + 30, canvasBaseH - 30)}px`;
+    syncInputs(el);
+    if (el.classList.contains("bubble")) renderBubbleVisual(el);
+  });
+
+  el.addEventListener("pointerup", e => {
+    dragging = false;
+    try { el.releasePointerCapture(e.pointerId); } catch {}
+  });
+}
+
+function addResizeHandle(el, colorClass="") {
+  const handle = document.createElement("div");
+  handle.className = `resize-handle ${colorClass}`.trim();
+  el.appendChild(handle);
+  return handle;
+}
+
+function makePanelResizable(panel) {
+  const handle = addResizeHandle(panel);
+  let startX, startW, aspect, resizing = false;
+
+  handle.addEventListener("pointerdown", e => {
+    e.stopPropagation();
+    selectElement(panel);
+    resizing = true;
+    startX = e.clientX;
+    startW = parseFloat(panel.style.width || panel.offsetWidth);
+    aspect = Number(panel.dataset.aspect || (startW / panel.offsetHeight));
+    handle.setPointerCapture(e.pointerId);
+  });
+
+  handle.addEventListener("pointermove", e => {
+    if (!resizing) return;
+    const scale = Number(zoom.value) / 100;
+    const dx = (e.clientX - startX) / scale;
+    let newW = clamp(startW + dx, 50, canvasBaseW * 1.5);
+    let newH = newW / aspect;
+    panel.style.width = `${newW}px`;
+    panel.style.height = `${newH}px`;
+    syncInputs(panel);
+  });
+
+  handle.addEventListener("pointerup", e => {
+    resizing = false;
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+  });
+}
+
+function makeTextResizable(el) {
+  const handle = addResizeHandle(el, "text-handle");
+  let startX, startY, startW, startH, resizing = false;
+
+  handle.addEventListener("pointerdown", e => {
+    e.stopPropagation();
+    selectElement(el);
+    resizing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = parseFloat(el.style.width || el.offsetWidth);
+    startH = parseFloat(el.style.height || el.offsetHeight);
+    handle.setPointerCapture(e.pointerId);
+  });
+
+  handle.addEventListener("pointermove", e => {
+    if (!resizing) return;
+    const scale = Number(zoom.value) / 100;
+    const dx = (e.clientX - startX) / scale;
+    const dy = (e.clientY - startY) / scale;
+    const newW = clamp(startW + dx, 80, 420);
+    const newH = clamp(startH + dy, 40, 260);
+    el.style.width = `${newW}px`;
+    el.style.height = `${newH}px`;
+    syncInputs(el);
+    if (el.classList.contains("bubble")) renderBubbleVisual(el);
+  });
+
+  handle.addEventListener("pointerup", e => {
+    resizing = false;
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+  });
+}
+
+function createPanel(item) {
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.style.left = `${item.x || 0}px`;
+  panel.style.top = `${item.y || 0}px`;
+  panel.style.width = `${item.w || 160}px`;
+  panel.style.height = `${item.h || 120}px`;
+  panel.style.zIndex = ++zCounter;
+  panel.dataset.id = item.id;
+  panel.dataset.aspect = String(item.aspect);
+  panel.dataset.naturalWidth = String(item.naturalWidth);
+  panel.dataset.naturalHeight = String(item.naturalHeight);
+  panel.dataset.order = String(item.order);
+
+  const img = document.createElement("img");
+  img.src = item.src;
+  img.style.objectFit = "cover";
+  panel.appendChild(img);
+
+  const badge = document.createElement("div");
+  badge.className = "panel-index";
+  badge.textContent = item.order + 1;
+  panel.appendChild(badge);
+
+  canvasArea.appendChild(panel);
+  makeMovable(panel);
+  makePanelResizable(panel);
+  item.el = panel;
+  return panel;
+}
+
+async function readImageFile(file, order) {
+  const src = await fileToDataURL(file);
+  const dims = await getImageDimensions(src);
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    order,
+    name: file.name,
+    src,
+    naturalWidth: dims.w,
+    naturalHeight: dims.h,
+    aspect: dims.w / dims.h,
+    orientation: classifyAspect(dims.w / dims.h),
+    x: 0, y: 0, w: 160, h: 120,
+    el: null
+  };
+}
+
+function classifyAspect(aspect) {
+  if (aspect >= 1.25) return "landscape";
+  if (aspect <= 0.85) return "portrait";
+  return "square";
+}
+
+function fileToDataURL(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+function getImageDimensions(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = src;
+  });
+}
+
+imageInput.addEventListener("change", async e => {
+  const files = [...e.target.files].filter(file => file.type.startsWith("image/"));
+  const startOrder = imageItems.length;
+  const newItems = [];
+
+  for (let i = 0; i < files.length; i++) {
+    newItems.push(await readImageFile(files[i], startOrder + i));
+  }
+
+  imageItems.push(...newItems);
+  imageItems.sort((a, b) => a.order - b.order);
+
+  for (const item of newItems) createPanel(item);
+
+  updateOrderList();
+  if (layoutMode.value !== "free") autoLayoutPanels();
+  imageInput.value = "";
+});
+
+canvasArea.addEventListener("dragenter", e => {
+  e.preventDefault();
+  canvasArea.classList.add("drop-ready");
+});
+canvasArea.addEventListener("dragover", e => e.preventDefault());
+canvasArea.addEventListener("dragleave", e => {
+  if (!canvasArea.contains(e.relatedTarget)) canvasArea.classList.remove("drop-ready");
+});
+canvasArea.addEventListener("drop", async e => {
+  e.preventDefault();
+  canvasArea.classList.remove("drop-ready");
+
+  const files = [...e.dataTransfer.files].filter(file => file.type.startsWith("image/"));
+  const startOrder = imageItems.length;
+  const newItems = [];
+
+  for (let i = 0; i < files.length; i++) {
+    newItems.push(await readImageFile(files[i], startOrder + i));
+  }
+
+  imageItems.push(...newItems);
+  imageItems.sort((a, b) => a.order - b.order);
+
+  for (const item of newItems) createPanel(item);
+
+  updateOrderList();
+  if (layoutMode.value !== "free") autoLayoutPanels();
+});
+
+function updateOrderList() {
+  if (!imageItems.length) {
+    orderList.textContent = "아직 이미지가 없습니다.";
+    return;
+  }
+  orderList.innerHTML = imageItems
+    .sort((a, b) => a.order - b.order)
+    .map(item => `${item.order + 1}. ${escapeHTML(item.name)} / ${item.orientation} / ${Math.round(item.aspect * 100) / 100}:1`)
+    .join("<br>");
+}
+
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[ch]));
+}
+
+function autoLayoutPanels() {
+  const items = imageItems
+    .filter(item => item.el && document.body.contains(item.el))
+    .sort((a, b) => a.order - b.order);
+
+  if (!items.length) return;
+
+  const gap = clamp(Number(gapInput.value || 8), 0, 30);
+  const mode = pageMode.value;
+
+  let result;
+  if (mode === "portrait") {
+    result = computeLayout(items, PORTRAIT.w, PORTRAIT.h, gap, layoutMode.value, "portrait");
+  } else if (mode === "landscape") {
+    result = computeLayout(items, LANDSCAPE.w, LANDSCAPE.h, gap, layoutMode.value, "landscape");
+  } else {
+    const portraitResult = computeLayout(items, PORTRAIT.w, PORTRAIT.h, gap, layoutMode.value, "portrait");
+    const landscapeResult = computeLayout(items, LANDSCAPE.w, LANDSCAPE.h, gap, layoutMode.value, "landscape");
+    result = landscapeResult.score > portraitResult.score ? landscapeResult : portraitResult;
+  }
+
+  setCanvasOrientation(result.orientation);
+
+  items.forEach(item => {
+    const p = result.positions[item.id];
+    if (!p) return;
+    item.x = p.x; item.y = p.y; item.w = p.w; item.h = p.h;
+    item.el.style.left = `${item.x}px`;
+    item.el.style.top = `${item.y}px`;
+    item.el.style.width = `${item.w}px`;
+    item.el.style.height = `${item.h}px`;
+  });
+
+  selectElement(items[0].el);
+}
+
+function computeLayout(items, canvasW, canvasH, gap, layoutKind, orientationLabel) {
+  const blocks = layoutKind === "orderRows"
+    ? buildOrderBlocks(items, gap, canvasW)
+    : buildSmartBlocks(items, gap, canvasW);
+
+  layoutBlocksIntoCanvas(blocks, gap, canvasW, canvasH);
+  const positions = {};
+  let totalArea = 0;
+
+  blocks.forEach(block => {
+    block.items.forEach(item => {
+      positions[item.id] = { x: item._x, y: item._y, w: item._w, h: item._h };
+      totalArea += item._w * item._h;
+    });
+  });
+
+  const minArea = Math.min(...blocks.flatMap(block => block.items.map(item => item._w * item._h)));
+  const score = totalArea + minArea * 1.5;
+
+  return { orientation: orientationLabel, positions, score };
+}
+
+function buildSmartBlocks(items, gap, canvasW) {
+  const blocks = [];
+  let i = 0;
+
+  while (i < items.length) {
+    const a = items[i];
+    const b = items[i + 1];
+    const c = items[i + 2];
+
+    if (
+      a.orientation === "landscape" &&
+      b && c &&
+      b.orientation === "portrait" &&
+      c.orientation === "portrait"
+    ) {
+      blocks.push(makeRowBlock([a], gap, canvasW));
+      blocks.push(makeRowBlock([b, c], gap, canvasW));
+      i += 3;
+      continue;
+    }
+
+    if (
+      a.orientation === "portrait" &&
+      b && c &&
+      b.orientation === "landscape" &&
+      c.orientation === "portrait"
+    ) {
+      blocks.push(makeMosaicLeftTallBlock(a, b, c, gap, canvasW));
+      i += 3;
+      continue;
+    }
+
+    if (
+      a.orientation === "portrait" &&
+      b && c &&
+      b.orientation === "landscape" &&
+      c.orientation === "landscape"
+    ) {
+      blocks.push(makeMosaicLeftTallBlock(a, b, c, gap, canvasW));
+      i += 3;
+      continue;
+    }
+
+    if (a.orientation === "portrait" && b && b.orientation === "portrait") {
+      blocks.push(makeRowBlock([a, b], gap, canvasW));
+      i += 2;
+      continue;
+    }
+
+    if (a.orientation === "square" && b && b.orientation === "square") {
+      blocks.push(makeRowBlock([a, b], gap, canvasW));
+      i += 2;
+      continue;
+    }
+
+    blocks.push(makeRowBlock([a], gap, canvasW));
+    i += 1;
+  }
+
+  return blocks;
+}
+
+function buildOrderBlocks(items, gap, canvasW) {
+  const blocks = [];
+  let i = 0;
+  while (i < items.length) {
+    const a = items[i];
+    const b = items[i + 1];
+    if (a.orientation === "portrait" && b && b.orientation === "portrait") {
+      blocks.push(makeRowBlock([a, b], gap, canvasW));
+      i += 2;
+    } else {
+      blocks.push(makeRowBlock([a], gap, canvasW));
+      i += 1;
+    }
+  }
+  return blocks;
+}
+
+function makeRowBlock(items, gap, canvasW) {
+  const contentW = canvasW - gap * 2;
+  const innerGap = gap * (items.length - 1);
+  const aspectSum = items.reduce((sum, item) => sum + item.aspect, 0);
+  const h = (contentW - innerGap) / aspectSum;
+  let x = 0;
+
+  items.forEach(item => {
+    const w = item.aspect * h;
+    item._localX = x;
+    item._localY = 0;
+    item._localW = w;
+    item._localH = h;
+    x += w + gap;
+  });
+
+  return { items, naturalW: x - gap, naturalH: h };
+}
+
+function makeMosaicLeftTallBlock(leftItem, topRightItem, bottomRightItem, gap, canvasW) {
+  const contentW = canvasW - gap * 2;
+  const a1 = leftItem.aspect;
+  const a2 = topRightItem.aspect;
+  const a3 = bottomRightItem.aspect;
+  const s = (a2 * a3) / (a2 + a3);
+  let H = (contentW - gap * (1 - s)) / (a1 + s);
+  H = Math.max(H, 120);
+
+  const leftW = a1 * H;
+  const rightW = contentW - gap - leftW;
+  const topH = rightW / a2;
+  const bottomH = rightW / a3;
+
+  leftItem._localX = 0;
+  leftItem._localY = 0;
+  leftItem._localW = leftW;
+  leftItem._localH = H;
+
+  topRightItem._localX = leftW + gap;
+  topRightItem._localY = 0;
+  topRightItem._localW = rightW;
+  topRightItem._localH = topH;
+
+  bottomRightItem._localX = leftW + gap;
+  bottomRightItem._localY = topH + gap;
+  bottomRightItem._localW = rightW;
+  bottomRightItem._localH = bottomH;
+
+  return { items: [leftItem, topRightItem, bottomRightItem], naturalW: contentW, naturalH: H };
+}
+
+function layoutBlocksIntoCanvas(blocks, gap, canvasW, canvasH) {
+  const naturalTotalH = blocks.reduce((sum, block) => sum + block.naturalH, 0) + gap * (blocks.length - 1);
+  const availableH = canvasH - gap * 2;
+  const scale = naturalTotalH > availableH ? availableH / naturalTotalH : 1;
+  const totalScaledH = naturalTotalH * scale;
+  let y = (canvasH - totalScaledH) / 2;
+
+  blocks.forEach((block, index) => {
+    const blockW = block.naturalW * scale;
+    const blockH = block.naturalH * scale;
+    const startX = (canvasW - blockW) / 2;
+
+    block.items.forEach(item => {
+      item._x = startX + item._localX * scale;
+      item._y = y + item._localY * scale;
+      item._w = item._localW * scale;
+      item._h = item._localH * scale;
+    });
+
+    y += blockH;
+    if (index < blocks.length - 1) y += gap * scale;
+  });
+}
+
+autoLayoutBtn.addEventListener("click", autoLayoutPanels);
+gapInput.addEventListener("change", () => { if (layoutMode.value !== "free") autoLayoutPanels(); });
+layoutMode.addEventListener("change", () => { if (layoutMode.value !== "free") autoLayoutPanels(); });
+pageMode.addEventListener("change", () => { if (layoutMode.value !== "free" && imageItems.length) autoLayoutPanels(); });
+
+clearPanelsBtn.addEventListener("click", () => {
+  imageItems.forEach(item => item.el?.remove());
+  imageItems = [];
+  updateOrderList();
+  selected = null;
+});
+
+function createTextElement(type) {
+  const el = document.createElement("div");
+  el.className = type;
+  el.style.left = "90px";
+  el.style.top = "90px";
+  el.style.width = type === "bubble" ? "190px" : "220px";
+  el.style.height = type === "bubble" ? "100px" : "70px";
+  el.style.fontFamily = defaultFontFamily;
+  el.style.fontSize = `${defaultFontSize}px`;
+  el.style.zIndex = ++zCounter;
+
+  const textNode = document.createElement("div");
+  textNode.className = "text-content";
+  textNode.textContent = textInput.value.trim() || "대사";
+  el.appendChild(textNode);
+
+  if (type === "bubble") {
+    el.dataset.tailType = tailTypeSelect.value;
+    el.dataset.tailDir = tailDirSelect.value;
+  }
+
+  canvasArea.appendChild(el);
+  makeMovable(el);
+  makeTextResizable(el);
+  if (type === "bubble") renderBubbleVisual(el);
+  selectElement(el);
+}
+
+addBubbleBtn.addEventListener("click", () => createTextElement("bubble"));
+addCaptionBtn.addEventListener("click", () => createTextElement("caption"));
+
+applyTextStyleBtn.addEventListener("click", () => {
+  defaultFontFamily = fontFamilySelect.value;
+  defaultFontSize = Number(fontSizeInput.value || 20);
+
+  if (selected && (selected.classList.contains("bubble") || selected.classList.contains("caption"))) {
+    selected.style.fontFamily = defaultFontFamily;
+    selected.style.fontSize = `${defaultFontSize}px`;
+  }
+  if (selected && selected.classList.contains("bubble")) {
+    selected.dataset.tailType = tailTypeSelect.value;
+    selected.dataset.tailDir = tailDirSelect.value;
+    renderBubbleVisual(selected);
+  }
+});
+
+const tailAngleMap = {
+  "right": 0,
+  "bottom-right": 55,
+  "bottom": 90,
+  "bottom-left": 125,
+  "left": 180,
+  "top-left": 235,
+  "top": 270,
+  "top-right": 305
+};
+
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+function buildSpeechBubblePathData(w, h, dir, margin=60, includeTail=true) {
+  const cx = margin + w / 2;
+  const cy = margin + h / 2;
+  const rx = Math.max(10, w / 2 - 3);
+  const ry = Math.max(10, h / 2 - 3);
+
+  if (!includeTail) {
+    return {
+      d: `M ${cx - rx} ${cy}
+          a ${rx} ${ry} 0 1 0 ${rx*2} 0
+          a ${rx} ${ry} 0 1 0 ${-rx*2} 0 Z`,
+      boxW: w + margin * 2,
+      boxH: h + margin * 2,
+      left: -margin,
+      top: -margin
+    };
+  }
+
+  const tailAngle = degToRad(tailAngleMap[dir] ?? 55);
+  const spread = degToRad(18);
+  const tipLen = clamp(Math.min(w, h) * 0.36, 24, 44);
+
+  const a1 = tailAngle - spread / 2;
+  const a2 = tailAngle + spread / 2;
+
+  function pt(a) {
+    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
+  }
+
+  const p1 = pt(a1);
+  const p2 = pt(a2);
+  const tip = {
+    x: cx + (rx + tipLen) * Math.cos(tailAngle),
+    y: cy + (ry + tipLen) * Math.sin(tailAngle)
+  };
+
+  let d = `M ${p1.x} ${p1.y} L ${tip.x} ${tip.y} L ${p2.x} ${p2.y} `;
+  const steps = 80;
+  const start = a2;
+  const end = a1 + Math.PI * 2;
+
+  for (let i = 1; i <= steps; i++) {
+    const a = start + (end - start) * (i / steps);
+    const p = pt(a);
+    d += `L ${p.x} ${p.y} `;
+  }
+  d += "Z";
+
+  return {
+    d,
+    boxW: w + margin * 2,
+    boxH: h + margin * 2,
+    left: -margin,
+    top: -margin
+  };
+}
+
+function renderBubbleVisual(el) {
+  el.querySelectorAll(".bubble-bg, .tail-part").forEach(n => n.remove());
+
+  const w = parseFloat(el.style.width || el.offsetWidth);
+  const h = parseFloat(el.style.height || el.offsetHeight);
+  const tailType = el.dataset.tailType || "solid";
+  const tailDir = el.dataset.tailDir || "bottom-right";
+
+  const bg = createSVGEl("svg");
+  bg.classList.add("bubble-bg");
+
+  const margin = 70;
+  const includeTail = tailType === "solid";
+  const shape = buildSpeechBubblePathData(w, h, tailDir, margin, includeTail);
+
+  bg.setAttribute("width", shape.boxW);
+  bg.setAttribute("height", shape.boxH);
+  bg.setAttribute("viewBox", `0 0 ${shape.boxW} ${shape.boxH}`);
+  bg.style.left = `${shape.left}px`;
+  bg.style.top = `${shape.top}px`;
+
+  const path = createSVGEl("path");
+  path.setAttribute("d", shape.d);
+  path.setAttribute("fill", "white");
+  path.setAttribute("stroke", "#111");
+  path.setAttribute("stroke-width", "2");
+  path.setAttribute("stroke-linejoin", "round");
+  path.setAttribute("stroke-linecap", "round");
+  bg.appendChild(path);
+
+  el.prepend(bg);
+
+  if (tailType === "dot") {
+    const c1 = document.createElement("div");
+    c1.className = "tail-part tail-circle";
+    c1.style.width = "16px";
+    c1.style.height = "16px";
+    const c2 = document.createElement("div");
+    c2.className = "tail-part tail-circle";
+    c2.style.width = "10px";
+    c2.style.height = "10px";
+    applyDotTailPosition(c1, tailDir, 1);
+    applyDotTailPosition(c2, tailDir, 2);
+    el.appendChild(c1);
+    el.appendChild(c2);
+  }
+}
+
+function applyDotTailPosition(node, dir, step) {
+  const pos = {
+    "bottom-right": [
+      { left: "64%", top: "calc(100% - 2px)", rotate: "15deg" },
+      { left: "72%", top: "calc(100% + 12px)", rotate: "15deg" }
+    ],
+    "bottom": [
+      { left: "47%", top: "calc(100% - 2px)", rotate: "0deg" },
+      { left: "49%", top: "calc(100% + 14px)", rotate: "0deg" }
+    ],
+    "bottom-left": [
+      { left: "22%", top: "calc(100% - 2px)", rotate: "-15deg" },
+      { left: "14%", top: "calc(100% + 12px)", rotate: "-15deg" }
+    ],
+    "right": [
+      { left: "calc(100% - 2px)", top: "46%", rotate: "-75deg" },
+      { left: "calc(100% + 12px)", top: "49%", rotate: "-75deg" }
+    ],
+    "left": [
+      { left: "-18px", top: "46%", rotate: "105deg" },
+      { left: "-28px", top: "49%", rotate: "105deg" }
+    ],
+    "top-right": [
+      { left: "64%", top: "-22px", rotate: "190deg" },
+      { left: "72%", top: "-30px", rotate: "190deg" }
+    ],
+    "top": [
+      { left: "47%", top: "-22px", rotate: "180deg" },
+      { left: "49%", top: "-30px", rotate: "180deg" }
+    ],
+    "top-left": [
+      { left: "22%", top: "-22px", rotate: "165deg" },
+      { left: "14%", top: "-30px", rotate: "165deg" }
+    ]
+  };
+  const config = pos[dir][step] || pos["bottom-right"][step];
+  node.style.left = config.left;
+  node.style.top = config.top;
+  node.style.transform = `rotate(${config.rotate})`;
+}
+
+updateBtn.addEventListener("click", () => {
+  if (!selected) return;
+  selected.style.left = `${Number(xInput.value)}px`;
+  selected.style.top = `${Number(yInput.value)}px`;
+  selected.style.width = `${Number(wInput.value)}px`;
+  selected.style.height = `${Number(hInput.value)}px`;
+  syncInputs(selected);
+  if (selected.classList.contains("bubble")) renderBubbleVisual(selected);
+
+  if (selected.classList.contains("panel")) {
+    const item = imageItems.find(x => x.el === selected);
+    if (item) {
+      item.x = Number(xInput.value);
+      item.y = Number(yInput.value);
+      item.w = Number(wInput.value);
+      item.h = Number(hInput.value);
+    }
+  }
+});
+
+deleteBtn.addEventListener("click", () => {
+  if (!selected) return;
+
+  if (selected.classList.contains("panel")) {
+    imageItems = imageItems.filter(item => item.el !== selected);
+    imageItems.forEach((item, index) => {
+      item.order = index;
+      const badge = item.el?.querySelector(".panel-index");
+      if (badge) badge.textContent = index + 1;
+    });
+    updateOrderList();
+  }
+
+  selected.remove();
+  selected = null;
+});
+
+toggleFitBtn.addEventListener("click", () => {
+  if (!selected || !selected.classList.contains("panel")) return;
+  const img = selected.querySelector("img");
+  img.style.objectFit = img.style.objectFit === "cover" ? "contain" : "cover";
+});
+
+resetAspectBtn.addEventListener("click", () => {
+  if (!selected || !selected.classList.contains("panel")) return;
+  const aspect = Number(selected.dataset.naturalWidth) / Number(selected.dataset.naturalHeight);
+  const currentW = parseFloat(selected.style.width || selected.offsetWidth);
+  selected.style.height = `${currentW / aspect}px`;
+  selected.dataset.aspect = String(aspect);
+  syncInputs(selected);
+});
+
+canvasArea.addEventListener("pointerdown", e => {
+  if (e.target === canvasArea) {
+    selected = null;
+    document.querySelectorAll(".selected").forEach(el => el.classList.remove("selected"));
+  }
+});
+
+async function exportJPEG() {
+  let [a, b] = sizePreset.value.split("x").map(Number);
+  if (currentOrientation === "landscape" && a < b) [a, b] = [b, a];
+  if (currentOrientation === "portrait" && a > b) [a, b] = [b, a];
+
+  const outW = a;
+  const outH = b;
+  const scaleX = outW / canvasBaseW;
+  const scaleY = outH / canvasBaseH;
+
+  const out = document.createElement("canvas");
+  out.width = outW;
+  out.height = outH;
+  const ctx = out.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outW, outH);
+
+  const elements = [...canvasArea.children]
+    .sort((a, b) => Number(a.style.zIndex || 0) - Number(b.style.zIndex || 0));
+
+  for (const el of elements) {
+    const x = parseFloat(el.style.left || 0) * scaleX;
+    const y = parseFloat(el.style.top || 0) * scaleY;
+    const w = parseFloat(el.style.width || el.offsetWidth) * scaleX;
+    const h = parseFloat(el.style.height || el.offsetHeight) * scaleY;
+
+    if (el.classList.contains("panel")) {
+      const img = el.querySelector("img");
+      const contain = img.style.objectFit !== "cover";
+      await drawImageFitted(ctx, img, x, y, w, h, contain);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 5 * scaleX;
+      ctx.strokeRect(x, y, w, h);
+    }
+
+    if (el.classList.contains("bubble")) {
+      drawBubble(ctx, getBubbleText(el), x, y, w, h, scaleX, el);
+    }
+
+    if (el.classList.contains("caption")) {
+      drawCaption(ctx, getBubbleText(el), x, y, w, h, scaleX, el);
+    }
+  }
+
+  out.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.download = "webtoon-collage.jpg";
+    link.href = url;
+    link.click();
+
+    exportLinkBox.style.display = "block";
+    exportLinkBox.innerHTML = `JPEG가 생성되었습니다. 자동 다운로드가 막히면 <a href="${url}" download="webtoon-collage.jpg">여기를 눌러 저장</a> 하세요.`;
+  }, "image/jpeg", 0.95);
+}
+
+function drawImageFitted(ctx, img, x, y, w, h, contain=true) {
+  return new Promise(resolve => {
+    const draw = () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+
+      const ir = img.naturalWidth / img.naturalHeight;
+      const cr = w / h;
+      let dw, dh;
+
+      if (contain) {
+        if (ir > cr) { dw = w; dh = w / ir; }
+        else { dh = h; dw = h * ir; }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x, y, w, h);
+      } else {
+        if (ir > cr) { dh = h; dw = h * ir; }
+        else { dw = w; dh = w / ir; }
+      }
+
+      const dx = x + (w - dw) / 2;
+      const dy = y + (h - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.restore();
+      resolve();
+    };
+
+    if (img.complete) draw();
+    else img.onload = draw;
+  });
+}
+
+function wrapLines(ctx, text, maxWidth) {
+  const paragraphs = text.split("\n");
+  const lines = [];
+  for (const p of paragraphs) {
+    let line = "";
+    for (const ch of p) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = ch;
+      } else {
+        line = test;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, dir, includeTail=true) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const rx = Math.max(10, w / 2 - 2);
+  const ry = Math.max(10, h / 2 - 2);
+
+  if (!includeTail) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.closePath();
+    return;
+  }
+
+  const tailAngle = degToRad(tailAngleMap[dir] ?? 55);
+  const spread = degToRad(18);
+  const tipLen = clamp(Math.min(w, h) * 0.36, 24, 44);
+  const a1 = tailAngle - spread / 2;
+  const a2 = tailAngle + spread / 2;
+
+  function pt(a) {
+    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
+  }
+
+  const p1 = pt(a1);
+  const p2 = pt(a2);
+  const tip = {
+    x: cx + (rx + tipLen) * Math.cos(tailAngle),
+    y: cy + (ry + tipLen) * Math.sin(tailAngle)
+  };
+
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(tip.x, tip.y);
+  ctx.lineTo(p2.x, p2.y);
+
+  const steps = 80;
+  const start = a2;
+  const end = a1 + Math.PI * 2;
+  for (let i = 1; i <= steps; i++) {
+    const a = start + (end - start) * (i / steps);
+    const p = pt(a);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+}
+
+function getDotTailGeometry(dir, x, y, w, h, scale) {
+  const map = {
+    "bottom-right": [[x + w * 0.64, y + h + 6 * scale], [x + w * 0.74, y + h + 20 * scale]],
+    "bottom": [[x + w * 0.50, y + h + 6 * scale], [x + w * 0.50, y + h + 20 * scale]],
+    "bottom-left": [[x + w * 0.24, y + h + 6 * scale], [x + w * 0.14, y + h + 20 * scale]],
+    "right": [[x + w + 6 * scale, y + h * 0.52], [x + w + 20 * scale, y + h * 0.52]],
+    "left": [[x - 6 * scale, y + h * 0.52], [x - 20 * scale, y + h * 0.52]],
+    "top-right": [[x + w * 0.64, y - 6 * scale], [x + w * 0.74, y - 20 * scale]],
+    "top": [[x + w * 0.50, y - 6 * scale], [x + w * 0.50, y - 20 * scale]],
+    "top-left": [[x + w * 0.24, y - 6 * scale], [x + w * 0.14, y - 20 * scale]]
+  };
+  return map[dir] || map["bottom-right"];
+}
+
+function drawBubble(ctx, text, x, y, w, h, scale, el) {
+  ctx.save();
+
+  const tailType = el.dataset.tailType || "solid";
+  const tailDir = el.dataset.tailDir || "bottom-right";
+
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 2 * scale;
+
+  drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, tailDir, tailType === "solid");
+  ctx.fill();
+  ctx.stroke();
+
+  if (tailType === "dot") {
+    const [p1, p2] = getDotTailGeometry(tailDir, x, y, w, h, scale);
+    ctx.beginPath();
+    ctx.arc(p1[0], p1[1], 8 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(p2[0], p2[1], 5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  const fontFamily = el.style.fontFamily || defaultFontFamily;
+  const fontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
+  ctx.fillStyle = "#111111";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `bold ${fontPx}px ${fontFamily}`;
+
+  const lines = wrapLines(ctx, text, w - 34 * scale);
+  const lineH = fontPx * 1.25;
+  const totalH = lines.length * lineH;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, x + w/2, y + h/2 - totalH/2 + i * lineH + lineH/2);
+  });
+
+  ctx.restore();
+}
+
+function drawCaption(ctx, text, x, y, w, h, scale, el) {
+  ctx.save();
+
+  const fontFamily = el.style.fontFamily || defaultFontFamily;
+  const fontPx = parseFloat(el.style.fontSize || defaultFontSize) * scale;
+  ctx.font = `bold ${fontPx}px ${fontFamily}`;
+
+  const lines = wrapLines(ctx, text, w - 20 * scale);
+  const lineH = fontPx * 1.25;
+  const realH = Math.max(h, lines.length * lineH + 16 * scale);
+
+  roundRect(ctx, x, y, w, realH, 8 * scale);
+  ctx.fillStyle = "rgba(255,255,255,.92)";
+  ctx.fill();
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 2 * scale;
+  ctx.stroke();
+
+  ctx.fillStyle = "#111";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, x + w/2, y + 8 * scale + i * lineH + lineH/2);
+  });
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+exportBtn.addEventListener("click", exportJPEG);
+</script>
+</body>
+</html>
