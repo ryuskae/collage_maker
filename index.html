@@ -260,6 +260,8 @@
     z-index: 2;
     white-space: pre-wrap;
     text-align: center;
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
   .caption {
     min-width: 120px;
@@ -453,7 +455,7 @@
       </select>
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
-      <p class="small">실선 대사 꼬리는 편집 화면의 SVG와 동일한 모양으로 내보내기되도록 맞췄습니다.</p>
+      <p class="small">실선 대사 꼬리는 편집 화면의 SVG와 동일한 모양으로 내보내기되도록 맞췄고, 영문 줄바꿈은 단어 단위로 처리합니다.</p>
     </div>
 
     <div class="section">
@@ -1471,22 +1473,68 @@ function drawImageFitted(ctx, img, x, y, w, h, contain=true) {
 }
 
 function wrapLines(ctx, text, maxWidth) {
-  const paragraphs = text.split("\n");
-  const lines = [];
-  for (const p of paragraphs) {
-    let line = "";
-    for (const ch of p) {
-      const test = line + ch;
-      if (ctx.measureText(test).width > maxWidth && line) {
-        lines.push(line);
-        line = ch;
+  const paragraphs = String(text).split("\n");
+  const allLines = [];
+
+  function breakLongToken(token) {
+    const pieces = [];
+    let current = "";
+    for (const ch of token) {
+      const test = current + ch;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        pieces.push(current);
+        current = ch;
       } else {
-        line = test;
+        current = test;
       }
     }
-    lines.push(line);
+    if (current) pieces.push(current);
+    return pieces;
   }
-  return lines;
+
+  for (const para of paragraphs) {
+    if (para === "") {
+      allLines.push("");
+      continue;
+    }
+
+    const tokens = para.match(/\S+|\s+/g) || [];
+    let line = "";
+
+    for (const token of tokens) {
+      const test = line + token;
+
+      if (ctx.measureText(test).width <= maxWidth) {
+        line = test;
+        continue;
+      }
+
+      if (line.trim() !== "") {
+        allLines.push(line.trimEnd());
+        line = "";
+      }
+
+      if (/^\s+$/.test(token)) continue;
+
+      if (ctx.measureText(token).width > maxWidth) {
+        const parts = breakLongToken(token);
+        if (parts.length > 1) {
+          for (const part of parts.slice(0, -1)) {
+            allLines.push(part);
+          }
+          line = parts[parts.length - 1];
+        } else {
+          line = token;
+        }
+      } else {
+        line = token;
+      }
+    }
+
+    if (line !== "") allLines.push(line.trimEnd());
+  }
+
+  return allLines;
 }
 
 function drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, dir, includeTail=true) {
