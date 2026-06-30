@@ -397,7 +397,26 @@
 
     <div class="section">
       <h2>내보내기</h2>
-      <button id="exportJpeg">JPEG로 저장</button>
+
+      <label>파일 형식</label>
+      <select id="exportFormat">
+        <option value="image/png">PNG (권장, 무손실)</option>
+        <option value="image/jpeg">JPEG</option>
+      </select>
+
+      <label>해상도 배수</label>
+      <select id="exportScale">
+        <option value="1">1배</option>
+        <option value="2" selected>2배</option>
+        <option value="3">3배</option>
+        <option value="4">4배</option>
+      </select>
+
+      <label>JPEG 품질</label>
+      <input id="jpegQuality" type="range" min="80" max="100" value="98" />
+      <div class="small">JPEG를 쓸 경우 98~100을 권장합니다. 최고 화질은 PNG가 더 유리합니다.</div>
+
+      <button id="exportJpeg">이미지로 저장</button>
       <div id="exportLinkBox" class="export-link"></div>
     </div>
   </aside>
@@ -420,6 +439,9 @@ const addCaptionBtn = document.getElementById("addCaption");
 const textInput = document.getElementById("textInput");
 const exportBtn = document.getElementById("exportJpeg");
 const exportLinkBox = document.getElementById("exportLinkBox");
+const exportFormat = document.getElementById("exportFormat");
+const exportScale = document.getElementById("exportScale");
+const jpegQuality = document.getElementById("jpegQuality");
 const deleteBtn = document.getElementById("deleteSelected");
 const updateBtn = document.getElementById("updateSelected");
 const toggleFitBtn = document.getElementById("toggleFit");
@@ -1255,8 +1277,11 @@ async function exportJPEG() {
   if (currentOrientation === "landscape" && a < b) [a, b] = [b, a];
   if (currentOrientation === "portrait" && a > b) [a, b] = [b, a];
 
-  const outW = a;
-  const outH = b;
+  const format = exportFormat.value;
+  const scaleMult = Number(exportScale.value || 1);
+
+  const outW = a * scaleMult;
+  const outH = b * scaleMult;
   const scaleX = outW / canvasBaseW;
   const scaleY = outH / canvasBaseH;
 
@@ -1264,6 +1289,9 @@ async function exportJPEG() {
   out.width = outW;
   out.height = outH;
   const ctx = out.getContext("2d");
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, outW, outH);
@@ -1282,31 +1310,35 @@ async function exportJPEG() {
       const contain = img.style.objectFit !== "cover";
       await drawImageFitted(ctx, img, x, y, w, h, contain);
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 5 * scaleX;
+      ctx.lineWidth = 5 * Math.max(scaleX, scaleY);
       ctx.strokeRect(x, y, w, h);
     }
 
     if (el.classList.contains("bubble")) {
-      drawBubble(ctx, getBubbleText(el), x, y, w, h, scaleX, el);
+      drawBubble(ctx, getBubbleText(el), x, y, w, h, Math.max(scaleX, scaleY), el);
     }
 
     if (el.classList.contains("caption")) {
-      drawCaption(ctx, getBubbleText(el), x, y, w, h, scaleX, el);
+      drawCaption(ctx, getBubbleText(el), x, y, w, h, Math.max(scaleX, scaleY), el);
     }
   }
+
+  const ext = format === "image/png" ? "png" : "jpg";
+  const filename = `webtoon-collage-${outW}x${outH}.${ext}`;
+  const quality = format === "image/jpeg" ? Number(jpegQuality.value || 98) / 100 : undefined;
 
   out.toBlob(blob => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
-    link.download = "webtoon-collage.jpg";
+    link.download = filename;
     link.href = url;
     link.click();
 
     exportLinkBox.style.display = "block";
-    exportLinkBox.innerHTML = `JPEG가 생성되었습니다. 자동 다운로드가 막히면 <a href="${url}" download="webtoon-collage.jpg">여기를 눌러 저장</a> 하세요.`;
-  }, "image/jpeg", 0.95);
+    exportLinkBox.innerHTML = `${outW} × ${outH} 해상도로 생성되었습니다. 자동 다운로드가 막히면 <a href="${url}" download="${filename}">여기를 눌러 저장</a> 하세요.`;
+  }, format, quality);
 }
 
 function drawImageFitted(ctx, img, x, y, w, h, contain=true) {
@@ -1333,6 +1365,8 @@ function drawImageFitted(ctx, img, x, y, w, h, contain=true) {
 
       const dx = x + (w - dw) / 2;
       const dy = y + (h - dh) / 2;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, dx, dy, dw, dh);
       ctx.restore();
       resolve();
