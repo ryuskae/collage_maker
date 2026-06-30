@@ -453,7 +453,7 @@
       </select>
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
-      <p class="small">실선 대사 꼬리는 본체와 꼬리를 하나의 경로로 그리도록 수정했습니다.</p>
+      <p class="small">실선 대사 꼬리는 편집 화면의 SVG와 동일한 모양으로 내보내기되도록 맞췄습니다.</p>
     </div>
 
     <div class="section">
@@ -1408,7 +1408,7 @@ async function exportJPEG() {
     }
 
     if (el.classList.contains("bubble")) {
-      drawBubble(ctx, getBubbleText(el), x, y, w, h, Math.max(scaleX, scaleY), el);
+      await drawBubble(ctx, getBubbleText(el), x, y, w, h, Math.max(scaleX, scaleY), el);
     }
 
     if (el.classList.contains("caption")) {
@@ -1514,19 +1514,68 @@ function getDotTailGeometry(dir, x, y, w, h, scale) {
   return map[dir] || map["bottom-right"];
 }
 
-function drawBubble(ctx, text, x, y, w, h, scale, el) {
+async function drawBubbleBackgroundFromPreview(ctx, el, x, y, scale) {
+  const bg = el.querySelector(".bubble-bg");
+  if (!bg) return false;
+
+  const clone = bg.cloneNode(true);
+  clone.removeAttribute("class");
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+  const serializer = new XMLSerializer();
+  const svgText = serializer.serializeToString(clone);
+  const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+
+    const svgW = parseFloat(bg.getAttribute("width") || 0);
+    const svgH = parseFloat(bg.getAttribute("height") || 0);
+    const offsetX = parseFloat(bg.style.left || 0);
+    const offsetY = parseFloat(bg.style.top || 0);
+
+    ctx.drawImage(
+      img,
+      x + offsetX * scale,
+      y + offsetY * scale,
+      svgW * scale,
+      svgH * scale
+    );
+    return true;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+
+async function drawBubble(ctx, text, x, y, w, h, scale, el) {
   ctx.save();
 
   const tailType = el.dataset.tailType || "solid";
   const tailDir = el.dataset.tailDir || "bottom-right";
 
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeStyle = "#111111";
-  ctx.lineWidth = 2 * scale;
+  // 편집 화면과 완전히 같은 SVG 배경을 먼저 그립니다.
+  const previewBGDrawn = await drawBubbleBackgroundFromPreview(ctx, el, x, y, scale);
 
-  drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, tailDir, tailType === "solid");
+  // 생각 꼬리는 preview SVG가 아니라 별도 원이므로 export에서도 직접 그립니다.
+  if (!previewBGDrawn) {
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2 * scale;
+    drawSpeechBubblePathOnCanvas(ctx, x, y, w, h, tailDir, tailType === "solid");
+  }
 
   if (tailType === "dot") {
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2 * scale;
+
     const [p1, p2] = getDotTailGeometry(tailDir, x, y, w, h, scale);
     ctx.beginPath();
     ctx.arc(p1[0], p1[1], 8 * scale, 0, Math.PI * 2);
