@@ -128,6 +128,12 @@
     background: #9b2525;
     border-color: #9b2525;
   }
+
+  button.flash {
+    background: #2e7d32 !important;
+    border-color: #2e7d32 !important;
+    transform: translateY(1px);
+  }
   .two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -235,6 +241,7 @@
     touch-action: none;
   }
   .bubble {
+    isolation: isolate;
     min-width: 90px;
     min-height: 50px;
     max-width: 360px;
@@ -252,7 +259,7 @@
     position: absolute;
     pointer-events: none;
     overflow: visible;
-    z-index: -1;
+    z-index: 0;
   }
   .bubble .text-content,
   .caption .text-content {
@@ -299,7 +306,7 @@
   .tail-part {
     position: absolute;
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
   }
   .tail-circle {
     border-radius: 50%;
@@ -448,18 +455,19 @@
 
       <label>말풍선 꼬리 방향</label>
       <select id="tailDirSelect">
-        <option value="bottom-right">아래 오른쪽</option>
-        <option value="bottom">아래 중앙</option>
-        <option value="bottom-left">아래 왼쪽</option>
-        <option value="right">오른쪽</option>
-        <option value="left">왼쪽</option>
-        <option value="top-right">위 오른쪽</option>
-        <option value="top">위 중앙</option>
-        <option value="top-left">위 왼쪽</option>
+        <option value="bottom-right">↘ 아래 오른쪽</option>
+        <option value="bottom">↓ 아래 중앙</option>
+        <option value="bottom-left">↙ 아래 왼쪽</option>
+        <option value="right">→ 오른쪽</option>
+        <option value="left">← 왼쪽</option>
+        <option value="top-right">↗ 위 오른쪽</option>
+        <option value="top">↑ 위 중앙</option>
+        <option value="top-left">↖ 위 왼쪽</option>
       </select>
 
       <button id="applyTextStyle">선택 텍스트에 폰트/꼬리 적용</button>
-      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다. 이번 버전에서는 말풍선 테두리를 더 얇게 하고 세리프 폰트를 추가했습니다.</p>
+      <div id="styleApplyStatus" class="status" style="display:none;"></div>
+      <p class="small">실선 대사 꼬리는 편집 화면과 동일하게 내보내기되도록 맞췄고, 저장 시 텍스트는 단어 단위 줄바꿈과 자동 축소로 말풍선 안에 맞춥니다. 이번 버전에서는 말풍선 테두리를 더 얇게 하고 세리프 폰트를 추가했습니다. 폰트 선택값은 새 말풍선에도 유지되며, 꼬리 방향은 화살표로 표시됩니다.</p>
     </div>
 
     <div class="section">
@@ -536,6 +544,7 @@ const resetAspectBtn = document.getElementById("resetAspect");
 const clearPanelsBtn = document.getElementById("clearPanels");
 const autoLayoutBtn = document.getElementById("autoLayoutBtn");
 const applyTextStyleBtn = document.getElementById("applyTextStyle");
+const styleApplyStatus = document.getElementById("styleApplyStatus");
 const zoom = document.getElementById("zoom");
 const sizePreset = document.getElementById("sizePreset");
 const layoutMode = document.getElementById("layoutMode");
@@ -634,6 +643,8 @@ function syncTextControls(el) {
   if (el.classList.contains("bubble") || el.classList.contains("caption")) {
     fontFamilySelect.value = el.style.fontFamily || defaultFontFamily;
     fontSizeInput.value = Math.round(parseFloat(el.style.fontSize || defaultFontSize));
+    defaultFontFamily = fontFamilySelect.value;
+    defaultFontSize = Number(fontSizeInput.value || defaultFontSize);
     if (el.classList.contains("bubble")) {
       tailTypeSelect.value = el.dataset.tailType || "solid";
       tailDirSelect.value = el.dataset.tailDir || "bottom-right";
@@ -1105,7 +1116,30 @@ clearPanelsBtn.addEventListener("click", () => {
   selected = null;
 });
 
+
+function rememberCurrentTextDefaults() {
+  defaultFontFamily = fontFamilySelect.value;
+  defaultFontSize = Number(fontSizeInput.value || 20);
+}
+
+fontFamilySelect.addEventListener("change", rememberCurrentTextDefaults);
+fontSizeInput.addEventListener("input", rememberCurrentTextDefaults);
+
+function flashStyleApplyButton(message) {
+  applyTextStyleBtn.classList.add("flash");
+  const oldText = applyTextStyleBtn.textContent;
+  applyTextStyleBtn.textContent = "적용됨";
+  styleApplyStatus.style.display = "block";
+  styleApplyStatus.textContent = message || "스타일을 적용했습니다.";
+
+  setTimeout(() => {
+    applyTextStyleBtn.classList.remove("flash");
+    applyTextStyleBtn.textContent = oldText;
+  }, 650);
+}
+
 function createTextElement(type) {
+  rememberCurrentTextDefaults();
   const el = document.createElement("div");
   el.className = type;
   el.style.left = "90px";
@@ -1137,17 +1171,21 @@ addBubbleBtn.addEventListener("click", () => createTextElement("bubble"));
 addCaptionBtn.addEventListener("click", () => createTextElement("caption"));
 
 applyTextStyleBtn.addEventListener("click", () => {
-  defaultFontFamily = fontFamilySelect.value;
-  defaultFontSize = Number(fontSizeInput.value || 20);
+  rememberCurrentTextDefaults();
 
   if (selected && (selected.classList.contains("bubble") || selected.classList.contains("caption"))) {
     selected.style.fontFamily = defaultFontFamily;
     selected.style.fontSize = `${defaultFontSize}px`;
-  }
-  if (selected && selected.classList.contains("bubble")) {
-    selected.dataset.tailType = tailTypeSelect.value;
-    selected.dataset.tailDir = tailDirSelect.value;
-    renderBubbleVisual(selected);
+
+    if (selected.classList.contains("bubble")) {
+      selected.dataset.tailType = tailTypeSelect.value;
+      selected.dataset.tailDir = tailDirSelect.value;
+      renderBubbleVisual(selected);
+    }
+
+    flashStyleApplyButton("선택한 말풍선/자막에 스타일을 적용했습니다.");
+  } else {
+    flashStyleApplyButton("현재 선택값을 새 말풍선의 기본 스타일로 저장했습니다.");
   }
 });
 
